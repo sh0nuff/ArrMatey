@@ -15,6 +15,7 @@ import com.dnfapps.arrmatey.downloadclient.database.DownloadClientDao
 import com.dnfapps.arrmatey.mediaserver.database.MediaServerIntegrationDao
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
+import kotlin.time.Clock
 
 class ExportDataUseCase(
     private val instanceDao: InstanceDao,
@@ -23,7 +24,6 @@ class ExportDataUseCase(
     private val instancePreferenceStoreRepository: InstancePreferenceStoreRepository,
     private val preferencesStore: PreferencesStore,
     private val transportEncryptor: TransportEncryptor,
-    private val json: Json,
     private val mediaServerIntegrationDao: MediaServerIntegrationDao? = null,
 ) {
     suspend operator fun invoke(
@@ -154,6 +154,7 @@ class ExportDataUseCase(
                     useColoredActivityCards = if (includeUiPreferences) preferencesStore.useColoredActivityCards.first() else null,
                     useColoredCalendarCards = if (includeUiPreferences) preferencesStore.useColoredCalendarCards.first() else null,
                     startOfWeekMonday = if (includeUiPreferences) preferencesStore.startOfWeekMonday.first() else null,
+                    calendarFocusYesterday = if (includeUiPreferences) preferencesStore.calendarFocusYesterday.first() else null,
                     showInfoCards = if (includeUiPreferences) preferencesStore.showInfoCards.first() else null,
                     discoverSectionPreferences =
                     if (includeIntegrationsPreferences) preferencesStore.discoverSectionPreferences.first() else null,
@@ -184,9 +185,16 @@ class ExportDataUseCase(
                 customWebpages = customWebpageExports,
                 globalPreferences = globalPreferences,
                 mediaServers = mediaServerExports,
+                creationDateTime = Clock.System.now(),
             )
 
-        val jsonString = json.encodeToString(backup)
+        val compactJson = Json {
+            encodeDefaults = false
+            explicitNulls = false
+            ignoreUnknownKeys = true
+        }
+
+        val jsonString = compactJson.encodeToString(backup)
         return transportEncryptor.encrypt(jsonString, password)
     }
 }

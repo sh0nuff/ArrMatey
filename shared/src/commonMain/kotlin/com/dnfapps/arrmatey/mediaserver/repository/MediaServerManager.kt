@@ -2,6 +2,7 @@ package com.dnfapps.arrmatey.mediaserver.repository
 
 import com.dnfapps.arrmatey.arr.api.client.HttpClientFactory
 import com.dnfapps.arrmatey.database.EncryptedString
+import com.dnfapps.arrmatey.discover.model.CLEAN_TITLE_REGEX
 import com.dnfapps.arrmatey.instances.model.InstanceHeader
 import com.dnfapps.arrmatey.mediaserver.client.EmbyClient
 import com.dnfapps.arrmatey.mediaserver.client.JellyfinClient
@@ -101,6 +102,11 @@ class MediaServerManager(
     }
 
     fun observeIntegrations(): Flow<List<MediaServerIntegration>> = dao.observeAll()
+
+    fun getAllIntegrations(): List<MediaServerIntegration> {
+        val cached = cachedIntegrations.values.toList()
+        return cached.ifEmpty { activeRepositories.value.map { it.integration } }
+    }
 
     fun observeIntegration(type: MediaServerType): Flow<MediaServerIntegration?> = dao.observeByType(type)
 
@@ -222,9 +228,9 @@ class MediaServerManager(
         }
 
         if (!title.isNullOrBlank()) {
-            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9]"), "").lowercase()
+            val cleanTitle = title.replace(CLEAN_TITLE_REGEX, "").lowercase()
             return candidateItems.firstOrNull { item ->
-                val itemCleanTitle = item.title.replace(Regex("[^a-zA-Z0-9]"), "").lowercase()
+                val itemCleanTitle = item.title.replace(CLEAN_TITLE_REGEX, "").lowercase()
                 val titleMatches = itemCleanTitle == cleanTitle
                 val typeMatches = mediaType == null || item.type == mediaType
                 val yearMatches = year == null || item.year == null || item.year == year
@@ -250,12 +256,13 @@ class MediaServerManager(
         clientIdentifier: String,
         headers: List<InstanceHeader> = emptyList(),
     ): NetworkResult<MediaBrowserAuthResult> {
+        val effectiveClientId = clientIdentifier.ifBlank { "arrmatey-device-id" }
         val tempIntegration = MediaServerIntegration(
             serverType = serverType,
             label = serverType.name,
             url = baseUrl,
             token = EncryptedString(""),
-            clientIdentifier = clientIdentifier,
+            clientIdentifier = effectiveClientId,
             headers = headers,
         )
         val httpClient = httpClientFactory.createMediaServerClient(tempIntegration)

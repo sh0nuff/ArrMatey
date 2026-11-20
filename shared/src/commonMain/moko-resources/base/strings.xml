@@ -1001,6 +1001,8 @@
     <string name="v16_title">Activity History &amp; Enhancements</string>
     <string name="v17_title">Media History, Fast Scroll &amp; Enhancements</string>
     <string name="v18_title">It's a big one!</string>
+    <string name="v19_title">Performance &amp; Enhancements</string>
+    <string name="v20_title">QR Sharing &amp; Setup Enhancements</string>
 
     <!-- Backup & Restore -->
     <string name="backup_restore">Backup &amp; Restore</string>
@@ -1008,8 +1010,22 @@
     <string name="backup_description">Export data for backup or sharing with another device</string>
     <string name="restore">Restore</string>
     <string name="restore_description">Restore data from a backup file</string>
+    <string name="generate_qr_code">Generate QR Code</string>
+    <string name="generate">Generate</string>
+    <string name="generate_qr_code_description">Create a QR code to transfer your setup to another device</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="scan_qr_code_description">Scan a QR code from another device to import configuration</string>
+    <string name="camera_permission_required">Camera permission is required to scan QR codes.</string>
+    <string name="grant_camera_permission">Grant Camera Permission</string>
+    <string name="qr_code_expired">This QR code has expired (older than 5 minutes)</string>
+    <string name="qr_code_expiration_note">This QR code will expire after 5 minutes.</string>
+    <string name="qr_code_missing_timestamp">This QR code is missing a creation timestamp</string>
+    <string name="qr_code_too_large">Selected backup data is too large for a QR code. Please deselect some items or use file backup.</string>
+    <string name="restore_mode_file">Backup File</string>
+    <string name="restore_mode_qr">Scan QR Code</string>
     <string name="export_data">Export Data</string>
     <string name="import_data">Import Data</string>
+    <string name="add_media_server">Add Media Server</string>
     <string name="export_password_prompt">Enter a password to encrypt your backup. You will need this password to import the data on another device.</string>
     <string name="import_password_prompt">Enter the password used to encrypt the backup file.</string>
     <string name="include_preferences">Include service preferences</string>
@@ -1229,6 +1245,8 @@
     <string name="saving_will_add_ebook_support">Saving will add an e-book root folder and configure e-books for this author.</string>
     <string name="start_week_on_monday">Start week on Monday</string>
     <string name="start_week_on_monday_desc">Use Monday as the first day of the week in the calendar month view</string>
+    <string name="calendar_focus_yesterday">Focus yesterday in calendar</string>
+    <string name="calendar_focus_yesterday_desc">Set the default focus date in the calendar list view to yesterday instead of today</string>
 
     <!-- Kapowarr -->
     <string name="type_volume">Volume</string>
@@ -1388,4 +1406,11 @@
     <string name="remote">Remote</string>
     <string name="direct_http">Direct HTTP</string>
     <string name="secure_https">Secure HTTPS</string>
+    <string name="swipe_sensitivity">Swipe Sensitivity</string>
+    <string name="swipe_sensitivity_description">Adjust threshold required for swipe gestures (%1$d%%)</string>
+    <string name="prowlarr_tv">TV</string>
+    <string name="movies_from_prowlarr">Movies from Prowlarr</string>
+    <string name="tv_from_prowlarr">TV from Prowlarr</string>
+    <string name="newest_downloadable_empty">No releases found</string>
+    <string name="seeders_count">%1$d seeds</string>
 </resources>

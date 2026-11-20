@@ -57,11 +57,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
 open class ArrInstanceRepository(
-    override val instance: Instance,
+    override var instance: Instance,
     protected val httpClient: HttpClient,
     protected val logger: Logger,
     protected val mokoStrings: MokoStrings,
 ) : InstanceScopedRepository {
+    override fun close() {
+        httpClient.close()
+    }
+
     val client: ArrClient = createClient()
 
     protected val libraryRepository = LibraryRepository(client, logger, mokoStrings)
@@ -239,8 +243,24 @@ open class ArrInstanceRepository(
         libraryRepository.resetDownloadStatus()
     }
 
+    open fun resetAddItemStatus() {
+        libraryRepository.resetAddItemStatus()
+    }
+
     open fun resetEditItemStatus() {
         libraryRepository.setEditItemStatus(OperationStatus.Idle)
+    }
+
+    open fun resetMonitorStatus() {
+        libraryRepository.resetMonitorStatus()
+    }
+
+    open fun resetSearchStatus() {
+        libraryRepository.resetSearchStatus()
+    }
+
+    open fun resetHistoryStatus() {
+        libraryRepository.resetHistoryStatus()
     }
 
     open suspend fun deleteActivityTask(

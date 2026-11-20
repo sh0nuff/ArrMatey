@@ -78,8 +78,9 @@ fun DashboardDiscoverFeedSection(
 
     val categories =
         remember(sectionPreferences.visibleCategories) {
-            val visible = sectionPreferences.visibleCategories
-            if (visible.isNotEmpty()) visible else DiscoverCategory.entries
+            // The dashboard feed shows Seerr data only.
+            val visible = sectionPreferences.visibleCategories.filterNot { it.isProwlarr }
+            if (visible.isNotEmpty()) visible else DiscoverCategory.seerrEntries
         }
 
     var selectedCategory by rememberSaveable { mutableStateOf<DiscoverCategory?>(null) }
@@ -140,7 +141,11 @@ fun DashboardDiscoverFeedSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     userScrollEnabled = enabled,
                 ) {
-                    items(categories) { category ->
+                    items(
+                        items = categories,
+                        key = { it.name },
+                        contentType = { "discover_category_chip" },
+                    ) { category ->
                         val isSelected = activeCategory == category
                         FilterChip(
                             selected = isSelected,
@@ -165,6 +170,8 @@ fun DashboardDiscoverFeedSection(
                                         DiscoverCategory.UPCOMING_MOVIES,
                                         DiscoverCategory.UPCOMING_SERIES,
                                         -> Icons.Default.CalendarToday
+                                        DiscoverCategory.PROWLARR_MOVIES -> Icons.Default.Movie
+                                        DiscoverCategory.PROWLARR_SERIES -> Icons.Default.Tv
                                     }
                                 Icon(
                                     imageVector = icon,
@@ -232,6 +239,7 @@ fun DashboardDiscoverFeedSection(
                             items(
                                 items = itemsList,
                                 key = { item -> "${category.name}_${item.id}_${item.mediaType.name}" },
+                                contentType = { "discover_feed_poster" },
                             ) { item ->
                                 PosterItem(
                                     item = item,

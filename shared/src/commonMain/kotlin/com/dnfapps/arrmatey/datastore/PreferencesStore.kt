@@ -65,9 +65,11 @@ interface PreferencesStore {
     val useColoredActivityCards: Flow<Boolean>
     val useColoredCalendarCards: Flow<Boolean>
     val startOfWeekMonday: Flow<Boolean>
+    val calendarFocusYesterday: Flow<Boolean>
 
     val queueRemovalPreferences: Flow<QueueRemovalPreferences>
     val downloadDeleteFiles: Flow<Boolean>
+    val swipeSensitivity: Flow<Float>
 
     fun observeCalendarFilterState(): Flow<CalendarFilterState>
 
@@ -172,9 +174,15 @@ interface PreferencesStore {
 
     fun setStartOfWeekMonday(value: Boolean)
 
+    fun toggleCalendarFocusYesterday()
+
+    fun setCalendarFocusYesterday(value: Boolean)
+
     fun saveQueueRemovalPreferences(preferences: QueueRemovalPreferences)
 
     fun setDownloadDeleteFiles(value: Boolean)
+
+    fun setSwipeSensitivity(value: Float)
 
     companion object {
         operator fun invoke(
@@ -807,6 +815,28 @@ class DefaultPreferencesStore(
         }
     }
 
+    override val calendarFocusYesterday: Flow<Boolean> =
+        dataStore.data.map {
+            it[PreferenceKeys.CALENDAR_FOCUS_YESTERDAY] ?: PreferenceDefaults.CALENDAR_FOCUS_YESTERDAY
+        }
+
+    override fun toggleCalendarFocusYesterday() {
+        scope.launch {
+            dataStore.edit {
+                val current = it[PreferenceKeys.CALENDAR_FOCUS_YESTERDAY] ?: PreferenceDefaults.CALENDAR_FOCUS_YESTERDAY
+                it[PreferenceKeys.CALENDAR_FOCUS_YESTERDAY] = !current
+            }
+        }
+    }
+
+    override fun setCalendarFocusYesterday(value: Boolean) {
+        scope.launch {
+            dataStore.edit {
+                it[PreferenceKeys.CALENDAR_FOCUS_YESTERDAY] = value
+            }
+        }
+    }
+
     override val queueRemovalPreferences: Flow<QueueRemovalPreferences> =
         dataStore.data.map {
             QueueRemovalPreferences(
@@ -835,6 +865,19 @@ class DefaultPreferencesStore(
         scope.launch {
             dataStore.edit {
                 it[PreferenceKeys.DOWNLOAD_DELETE_FILES] = value
+            }
+        }
+    }
+
+    override val swipeSensitivity: Flow<Float> =
+        dataStore.data.map {
+            it[PreferenceKeys.SWIPE_SENSITIVITY] ?: PreferenceDefaults.SWIPE_SENSITIVITY
+        }
+
+    override fun setSwipeSensitivity(value: Float) {
+        scope.launch {
+            dataStore.edit {
+                it[PreferenceKeys.SWIPE_SENSITIVITY] = value
             }
         }
     }
