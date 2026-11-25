@@ -1420,4 +1420,12 @@
     <string name="tv_from_prowlarr">TV from Prowlarr</string>
     <string name="newest_downloadable_empty">No releases found</string>
     <string name="seeders_count">%1$d seeds</string>
+    <string name="download_this_release">Download this release</string>
+    <string name="open_details">Open details</string>
+    <string name="newest_status_downloading">Downloading %1$d%%</string>
+    <string name="newest_status_in_library">In library</string>
+    <string name="newest_status_requested">Requested</string>
+    <string name="newest_grabbed">%1$s is downloading this release and will import it.</string>
+    <string name="newest_grabbed_added">Added to %1$s, which is downloading this release and will import it.</string>
+    <string name="newest_sent_to_client">Sent to the download client by Prowlarr. It will not be imported into the library automatically.</string>
 </resources>

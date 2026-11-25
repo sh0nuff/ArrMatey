@@ -16,10 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.dnfapps.arrmatey.newest.NewestDownloadStatus
 import com.dnfapps.arrmatey.newest.NewestDownloadableItem
 import com.dnfapps.arrmatey.newest.NewestDownloadableState
 import com.dnfapps.arrmatey.newest.ReleaseKind
@@ -59,6 +63,8 @@ fun NewestDownloadableRow(
     state: NewestDownloadableState,
     onItemClick: (NewestDownloadableItem) -> Unit,
     onSeeMore: (() -> Unit)? = null,
+    statuses: Map<String, NewestDownloadStatus> = emptyMap(),
+    onItemActions: (NewestDownloadableItem) -> Unit = {},
 ) {
     val items = (state as? NewestDownloadableState.Success)?.items.orEmpty()
 
@@ -117,7 +123,7 @@ fun NewestDownloadableRow(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
-            else -> NewestPosterRow(items = items, onItemClick = onItemClick)
+            else -> NewestPosterRow(items = items, onItemClick = onItemClick, statuses = statuses, onItemActions = onItemActions)
         }
     }
 }
@@ -126,6 +132,8 @@ fun NewestDownloadableRow(
 private fun NewestPosterRow(
     items: List<NewestDownloadableItem>,
     onItemClick: (NewestDownloadableItem) -> Unit,
+    statuses: Map<String, NewestDownloadStatus>,
+    onItemActions: (NewestDownloadableItem) -> Unit,
 ) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -136,17 +144,45 @@ private fun NewestPosterRow(
             key = { it.key },
             contentType = { if (it.match != null) "poster" else "plain" },
         ) { item ->
-            val match = item.match
-            if (match != null) {
-                PosterItem(
-                    item = match,
-                    modifier = Modifier.width(120.dp),
-                    onItemClick = { onItemClick(item) },
-                )
-            } else {
-                PlainReleaseCard(item = item)
-            }
+            NewestItemTile(
+                item = item,
+                status = statuses[item.key],
+                onItemClick = onItemClick,
+                onItemActions = onItemActions,
+                posterModifier = Modifier.width(120.dp),
+                cardModifier = Modifier.width(160.dp).height(180.dp),
+            )
         }
+    }
+}
+
+/**
+ * One release as a poster (Seerr matched it) or a plain card, with its status badge.
+ * Tapping a poster opens the details; a long press, or tapping a plain card, opens the
+ * release's actions.
+ */
+@Composable
+fun NewestItemTile(
+    item: NewestDownloadableItem,
+    status: NewestDownloadStatus?,
+    onItemClick: (NewestDownloadableItem) -> Unit,
+    onItemActions: (NewestDownloadableItem) -> Unit,
+    posterModifier: Modifier = Modifier,
+    cardModifier: Modifier = Modifier,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val match = item.match
+        if (match != null) {
+            PosterItem(
+                item = match,
+                modifier = posterModifier,
+                onItemClick = { onItemClick(item) },
+                onLongClick = { onItemActions(item) },
+            )
+        } else {
+            PlainReleaseCard(item = item, modifier = cardModifier, onClick = { onItemActions(item) })
+        }
+        NewestStatusBadge(status)
     }
 }
 
@@ -154,8 +190,9 @@ private fun NewestPosterRow(
 fun PlainReleaseCard(
     item: NewestDownloadableItem,
     modifier: Modifier = Modifier.width(160.dp).height(180.dp),
+    onClick: (() -> Unit)? = null,
 ) {
-    Card(modifier = modifier) {
+    Card(modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -186,6 +223,8 @@ fun NewestDownloadableList(
     onItemClick: (NewestDownloadableItem) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    statuses: Map<String, NewestDownloadStatus> = emptyMap(),
+    onItemActions: (NewestDownloadableItem) -> Unit = {},
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     if (state !is NewestDownloadableState.Loading) isRefreshing = false
@@ -215,7 +254,12 @@ fun NewestDownloadableList(
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(items = state.items, key = { it.key }) { item ->
-                                NewestDownloadableListItem(item = item, onClick = { onItemClick(item) })
+                                NewestDownloadableListItem(
+                                    item = item,
+                                    onClick = { onItemClick(item) },
+                                    status = statuses[item.key],
+                                    onActions = { onItemActions(item) },
+                                )
                             }
                         }
                     }
@@ -231,11 +275,21 @@ fun NewestDownloadableListItem(
     item: NewestDownloadableItem,
     onClick: () -> Unit,
     showOverview: Boolean = false,
+    status: NewestDownloadStatus? = null,
+    onActions: (() -> Unit)? = null,
 ) {
     val poster = item.match?.fullPosterPath
     val overview = item.match?.overview?.takeIf { showOverview && it.isNotBlank() }
     ListItem(
-        modifier = if (item.match != null) Modifier.clickable(onClick = onClick) else Modifier,
+        // Without a Seerr match there are no details to open, so a tap opens the release's actions.
+        modifier = Modifier.clickable(onClick = if (item.match != null || onActions == null) onClick else onActions),
+        trailingContent = onActions?.let {
+            {
+                IconButton(onClick = it) {
+                    Icon(Icons.Default.Download, contentDescription = mokoString(MR.strings.download_this_release))
+                }
+            }
+        },
         leadingContent = poster?.let {
             {
                 AsyncImage(
@@ -254,8 +308,9 @@ fun NewestDownloadableListItem(
             Text(text = item.displayTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         supportingContent = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(text = newestListLine(item))
+                NewestStatusBadge(status)
                 if (overview != null) {
                     Text(text = overview, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }

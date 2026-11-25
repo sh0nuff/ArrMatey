@@ -44,8 +44,8 @@ import com.dnfapps.arrmatey.seerr.api.model.Genre
 import com.dnfapps.arrmatey.shared.*
 import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.components.NewestDownloadableListItem
-import com.dnfapps.arrmatey.ui.components.PlainReleaseCard
-import com.dnfapps.arrmatey.ui.components.PosterItem
+import com.dnfapps.arrmatey.ui.components.NewestItemTile
+import com.dnfapps.arrmatey.ui.components.NewestReleaseSheetHost
 import com.dnfapps.arrmatey.ui.components.ViewTypeMenuButton
 import com.dnfapps.arrmatey.ui.components.navigation.BackButton
 import com.dnfapps.arrmatey.ui.helpers.LocalFloatingBarBottomPadding
@@ -72,6 +72,8 @@ fun NewestDownloadableGridScreen(
     val filterState by viewModel.filterFor(kind).collectAsStateWithLifecycle()
     val hasSeerr by viewModel.hasSeerr.collectAsStateWithLifecycle()
     var showFilterSheet by remember { mutableStateOf(false) }
+    val statuses by viewModel.statuses.collectAsStateWithLifecycle()
+    var actionsItem by remember { mutableStateOf<NewestDownloadableItem?>(null) }
     var viewType by rememberSaveable { mutableStateOf(ViewType.Grid) }
     val title = if (kind == ReleaseKind.Movie) MR.strings.movies_from_prowlarr else MR.strings.tv_from_prowlarr
     val bottomPadding = 16.dp + LocalFloatingBarBottomPadding.current
@@ -128,6 +130,8 @@ fun NewestDownloadableGridScreen(
                                     item = item,
                                     onClick = { onItemClick(item) },
                                     showOverview = true,
+                                    status = statuses[item.key],
+                                    onActions = { actionsItem = item },
                                 )
                             }
                         }
@@ -144,18 +148,13 @@ fun NewestDownloadableGridScreen(
                                 key = { it.key },
                                 contentType = { if (it.match != null) "poster" else "plain" },
                             ) { item ->
-                                val match = item.match
-                                if (match != null) {
-                                    PosterItem(
-                                        item = match,
-                                        onItemClick = { onItemClick(item) },
-                                    )
-                                } else {
-                                    PlainReleaseCard(
-                                        item = item,
-                                        modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
-                                    )
-                                }
+                                NewestItemTile(
+                                    item = item,
+                                    status = statuses[item.key],
+                                    onItemClick = onItemClick,
+                                    onItemActions = { actionsItem = it },
+                                    cardModifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
+                                )
                             }
                         }
                     }
@@ -163,6 +162,13 @@ fun NewestDownloadableGridScreen(
             }
         }
     }
+
+    NewestReleaseSheetHost(
+        viewModel = viewModel,
+        item = actionsItem,
+        onDismiss = { actionsItem = null },
+        onOpenDetails = onItemClick,
+    )
 
     if (showFilterSheet) {
         val rawItems = (rawState as? NewestDownloadableState.Success)?.items.orEmpty()
