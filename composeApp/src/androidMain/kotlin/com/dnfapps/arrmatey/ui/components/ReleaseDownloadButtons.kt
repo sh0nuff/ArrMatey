@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dnfapps.arrmatey.shared.*
 import com.dnfapps.arrmatey.shared.MR
@@ -113,7 +114,7 @@ private fun ReleaseDownloadButtons(
                 contentDescription = mokoString(MR.strings.interactive),
             )
             Spacer(Modifier.width(8.dp))
-            Text(text = mokoString(MR.strings.interactive))
+            Text(text = mokoString(MR.strings.interactive), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
 
         Button(
@@ -134,7 +135,7 @@ private fun ReleaseDownloadButtons(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Text(text = mokoString(MR.strings.automatic))
+            Text(text = mokoString(MR.strings.automatic), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
     }
 }

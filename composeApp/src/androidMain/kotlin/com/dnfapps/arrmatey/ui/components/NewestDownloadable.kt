@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -281,8 +282,8 @@ fun NewestDownloadableListItem(
     val poster = item.match?.fullPosterPath
     val overview = item.match?.overview?.takeIf { showOverview && it.isNotBlank() }
     ListItem(
-        // Without a Seerr match there are no details to open, so a tap opens the release's actions.
-        modifier = Modifier.clickable(onClick = if (item.match != null || onActions == null) onClick else onActions),
+        // A tap opens the release's actions, which include Open details, as posters do.
+        modifier = Modifier.clickable(onClick = onActions ?: onClick),
         trailingContent = onActions?.let {
             {
                 IconButton(onClick = it) {
@@ -309,7 +310,13 @@ fun NewestDownloadableListItem(
         },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(text = newestListLine(item))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = newestListLine(item, includeSeeders = false), modifier = Modifier.weight(1f, fill = false))
+                    item.release.seeders?.let { SeedersLabel(it) }
+                }
                 NewestStatusBadge(status)
                 if (overview != null) {
                     Text(text = overview, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -319,17 +326,37 @@ fun NewestDownloadableListItem(
     )
 }
 
+/** A seed icon and the seeder count. */
 @Composable
-private fun newestListLine(item: NewestDownloadableItem): String {
-    val type = mokoString(if (item.release.kind == ReleaseKind.Movie) MR.strings.movie else MR.strings.series)
-    return listOfNotNull(item.displayYear?.toString(), type, newestDetails(item)).joinToString(" • ")
+fun SeedersLabel(seeders: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.ArrowUpward,
+            contentDescription = mokoString(MR.strings.seeders_count, seeders),
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(text = seeders.toString(), style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 @Composable
-private fun newestDetails(item: NewestDownloadableItem): String {
+private fun newestListLine(
+    item: NewestDownloadableItem,
+    includeSeeders: Boolean = true,
+): String {
+    val type = mokoString(if (item.release.kind == ReleaseKind.Movie) MR.strings.movie else MR.strings.series)
+    return listOfNotNull(item.displayYear?.toString(), type, newestDetails(item, includeSeeders)).joinToString(" • ")
+}
+
+@Composable
+private fun newestDetails(
+    item: NewestDownloadableItem,
+    includeSeeders: Boolean = true,
+): String {
     val release = item.release
     val season = release.parsed.season?.takeIf { release.kind == ReleaseKind.Tv }?.let { "S" + it.toString().padStart(2, '0') }
-    val seeders = release.seeders?.let { mokoString(MR.strings.seeders_count, it) }
+    val seeders = release.seeders?.takeIf { includeSeeders }?.let { mokoString(MR.strings.seeders_count, it) }
     val age = release.ageHours.let { if (it < 24) "${it.toInt()}h" else "${(it / 24).toInt()}d" }
     return listOfNotNull(season, release.qualities.joinToString("/").ifEmpty { null }, seeders, age).joinToString(" • ")
 }

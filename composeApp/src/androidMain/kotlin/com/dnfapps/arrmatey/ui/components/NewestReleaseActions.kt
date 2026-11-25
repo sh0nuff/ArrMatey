@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dnfapps.arrmatey.newest.GrabNewestResult
@@ -132,11 +133,16 @@ fun NewestReleaseSheet(
                 } else {
                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
-                Text(text = mokoString(MR.strings.download_this_release), modifier = Modifier.padding(start = 8.dp))
+                Text(
+                    text = mokoString(MR.strings.download_this_release),
+                    modifier = Modifier.padding(start = 8.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             if (onOpenDetails != null) {
                 OutlinedButton(onClick = onOpenDetails, modifier = Modifier.fillMaxWidth()) {
-                    Text(text = mokoString(MR.strings.open_details))
+                    Text(text = mokoString(MR.strings.open_details), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
