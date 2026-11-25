@@ -110,7 +110,9 @@ import com.dnfapps.arrmatey.ui.components.unifiedmedia.sheets.SeerrViewRequestSh
 import com.dnfapps.arrmatey.ui.components.unifiedmedia.sheets.SeriesMonitoringSheet
 import com.dnfapps.arrmatey.ui.components.unifiedmedia.tabs.OverviewTabContent
 import com.dnfapps.arrmatey.ui.components.unifiedmedia.tabs.SeasonsFilesTabContent
+import com.dnfapps.arrmatey.ui.helpers.FoldablePosture
 import com.dnfapps.arrmatey.ui.helpers.LocalFloatingBarBottomPadding
+import com.dnfapps.arrmatey.ui.helpers.LocalFoldablePosture
 import com.dnfapps.arrmatey.ui.helpers.LocalIsInTwoPane
 import com.dnfapps.arrmatey.ui.screens.tracearr.TracearrStreamDetailsSheet
 import com.dnfapps.arrmatey.ui.sheets.ConfirmDeleteItemSheet
@@ -194,6 +196,8 @@ fun UnifiedMediaDetailsScreen(
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val isDualPanel = LocalIsInTwoPane.current
+    val foldablePosture = LocalFoldablePosture.current
+    val isTabletopPosture = foldablePosture is FoldablePosture.Tabletop
 
     var confirmDelete by remember { mutableStateOf(false) }
     var showEditSheet by remember { mutableStateOf(false) }
@@ -270,8 +274,14 @@ fun UnifiedMediaDetailsScreen(
 
     LaunchedEffect(lastSearchResult) {
         when (lastSearchResult) {
-            true -> Toast.makeText(context, searchQueuedMessage, Toast.LENGTH_SHORT).show()
-            false -> Toast.makeText(context, searchErrorMessage, Toast.LENGTH_SHORT).show()
+            true -> {
+                Toast.makeText(context, searchQueuedMessage, Toast.LENGTH_SHORT).show()
+                viewModel.resetSearchStatus()
+            }
+            false -> {
+                Toast.makeText(context, searchErrorMessage, Toast.LENGTH_SHORT).show()
+                viewModel.resetSearchStatus()
+            }
             else -> {}
         }
     }

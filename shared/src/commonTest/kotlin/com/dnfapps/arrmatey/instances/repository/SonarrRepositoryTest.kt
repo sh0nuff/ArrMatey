@@ -1,6 +1,10 @@
 package com.dnfapps.arrmatey.instances.repository
 
 import com.dnfapps.arrmatey.arr.api.client.ListenarrInstantSerializer
+import com.dnfapps.arrmatey.arr.api.client.SonarrApiVersion
+import com.dnfapps.arrmatey.arr.api.client.SonarrClient
+import com.dnfapps.arrmatey.arr.api.model.SeriesRelease
+import com.dnfapps.arrmatey.arr.api.model.SonarrQueueItem
 import com.dnfapps.arrmatey.database.EncryptedString
 import com.dnfapps.arrmatey.instances.model.Instance
 import com.dnfapps.arrmatey.instances.model.InstanceType
@@ -20,6 +24,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class SonarrRepositoryTest {
@@ -33,7 +38,28 @@ class SonarrRepositoryTest {
             enabled = true,
         )
 
+    private val fakeV5Instance =
+        Instance(
+            id = 2,
+            label = "Test Sonarr V5",
+            url = "http://localhost:8989",
+            apiKey = EncryptedString("test-api-key"),
+            type = InstanceType.Sonarr,
+            enabled = true,
+        )
+
     private val fakeLogger = LoggerFactory.get("test")
+
+    private val testJson = Json {
+        isLenient = true
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+        coerceInputValues = true
+        serializersModule = SerializersModule {
+            contextual(Instant::class, ListenarrInstantSerializer)
+        }
+    }
 
     @Test
     fun testGetEpisodes() = runTest {
@@ -60,19 +86,7 @@ class SonarrRepositoryTest {
         val httpClient =
             HttpClient(mockEngine) {
                 install(ContentNegotiation) {
-                    json(
-                        Json {
-                            isLenient = true
-                            ignoreUnknownKeys = true
-                            encodeDefaults = true
-                            explicitNulls = false
-                            coerceInputValues = true
-                            serializersModule =
-                                SerializersModule {
-                                    contextual(Instant::class, ListenarrInstantSerializer)
-                                }
-                        },
-                    )
+                    json(testJson)
                 }
             }
         val repository = SonarrRepository(fakeInstance, httpClient, fakeLogger, com.dnfapps.arrmatey.utils.fakeMokoStrings)
@@ -114,15 +128,7 @@ class SonarrRepositoryTest {
         },
     ) {
         install(ContentNegotiation) {
-            json(
-                Json {
-                    ignoreUnknownKeys = true
-                    serializersModule =
-                        SerializersModule {
-                            contextual(Instant::class, ListenarrInstantSerializer)
-                        }
-                },
-            )
+            json(testJson)
         }
     }
 
@@ -130,6 +136,7 @@ class SonarrRepositoryTest {
     fun testGetSeriesHistoryIsScopedToSeries() = runTest {
         val requests = mutableListOf<Url>()
         val repository = SonarrRepository(fakeInstance, historyHttpClient(requests), fakeLogger, com.dnfapps.arrmatey.utils.fakeMokoStrings)
+        repository.sonarrClient.apiVersion = SonarrApiVersion.V3
 
         repository.getSeriesHistory(seriesId = 7)
 
@@ -143,12 +150,125 @@ class SonarrRepositoryTest {
     fun testEpisodeHistoryDoesNotOverwriteSeriesHistory() = runTest {
         val requests = mutableListOf<Url>()
         val repository = SonarrRepository(fakeInstance, historyHttpClient(requests), fakeLogger, com.dnfapps.arrmatey.utils.fakeMokoStrings)
+        repository.sonarrClient.apiVersion = SonarrApiVersion.V3
 
         repository.getSeriesHistory(seriesId = 7)
-        // Episode id equal to the series id must not clobber the series entry.
         repository.getItemHistory(itemId = 7)
 
         assertEquals("7", requests.last().parameters["episodeId"])
         assertEquals(1, repository.observeItemHistory(7).first().size)
+    }
+
+    @Test
+    fun testV5SubresourceQueryParamsAndApiPath() = runTest {
+        val requests = mutableListOf<Url>()
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                requests += request.url
+                respond("""{"page": 1, "pageSize": 100, "totalRecords": 0, "records": []}""", HttpStatusCode.OK, headersOf("Content-Type", "application/json"))
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(testJson)
+            }
+        }
+
+        val client = SonarrClient(fakeV5Instance, httpClient, initialApiVersion = SonarrApiVersion.V5)
+        client.getItemHistory(id = 42, page = 1, pageSize = 10)
+
+        val url = requests.single()
+        assertEquals("/api/v5/history", url.encodedPath)
+        assertEquals(listOf("Series", "Episode"), url.parameters.getAll("includeSubresources"))
+    }
+
+    @Test
+    fun testV5SonarrQueueItemDeserialization() {
+        val v5QueueJson = """
+        {
+            "id": 100,
+            "title": "Series.S01.1080p.WEB-DL",
+            "size": 5000000000,
+            "sizeLeft": 2500000000,
+            "timeLeft": "00:15:00",
+            "protocol": "torrent",
+            "quality": {"quality": {"id": 1, "name": "WEB-DL-1080p"}, "revision": {"version": 1, "real": 0, "isRepack": false}},
+            "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "downloading",
+            "seriesId": 12,
+            "episodeIds": [101, 102, 103],
+            "seasons": [{"seasonNumber": 1, "monitored": true}],
+            "episodesWithFilesCount": 0,
+            "isFullSeason": true
+        }
+        """.trimIndent()
+
+        val item = testJson.decodeFromString<SonarrQueueItem>(v5QueueJson)
+        assertEquals(100, item.id)
+        assertEquals(2500000000f, item.sizeleft)
+        assertEquals("00:15:00", item.timeleft)
+        assertEquals(listOf(101L, 102L, 103L), item.effectiveEpisodeIds)
+        assertEquals(1, item.primarySeasonNumber)
+        assertTrue(item.isFullSeason)
+    }
+
+    @Test
+    fun testV5BulkQueueDeletion() = runTest {
+        var requestedPath = ""
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                requestedPath = request.url.encodedPath
+                respond("""{}""", HttpStatusCode.OK, headersOf("Content-Type", "application/json"))
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(testJson)
+            }
+        }
+
+        val client = SonarrClient(fakeV5Instance, httpClient, initialApiVersion = SonarrApiVersion.V5)
+        client.deleteActivityTask(id = 99, removeFromClient = true, blocklist = false, skipRedownload = false)
+
+        assertEquals("/api/v5/queue/bulk", requestedPath)
+    }
+
+    @Test
+    fun testSeriesReleaseDeserializationWithDateOnly() {
+        val releaseJson = """
+        {
+            "guid": "test-guid-123",
+            "title": "Series.Title.S01E01.1080p.WEB-DL",
+            "indexerId": 1,
+            "protocol": "torrent",
+            "seasonNumber": 1,
+            "airDate": "2026-11-15",
+            "publishDate": "2026-11-15"
+        }
+        """.trimIndent()
+
+        val release = testJson.decodeFromString<SeriesRelease>(releaseJson)
+        assertEquals("test-guid-123", release.guid)
+        assertEquals(Instant.parse("2026-11-15T00:00:00Z"), release.airDate)
+        assertEquals(Instant.parse("2026-11-15T00:00:00Z"), release.publishDate)
+    }
+
+    @Test
+    fun testInstantSerializerWithVariousFormats() {
+        val jsonWithFormats = """
+        [
+            {"guid": "g1", "title": "T1", "indexerId": 1, "protocol": "torrent", "seasonNumber": 1, "airDate": "2026-11-15"},
+            {"guid": "g2", "title": "T2", "indexerId": 1, "protocol": "torrent", "seasonNumber": 1, "airDate": "2026-11-15T12:00:00"},
+            {"guid": "g3", "title": "T3", "indexerId": 1, "protocol": "torrent", "seasonNumber": 1, "airDate": "2026-11-15T12:00:00Z"},
+            {"guid": "g4", "title": "T4", "indexerId": 1, "protocol": "torrent", "seasonNumber": 1, "airDate": "2026-11-15T12:00:00+02:00"},
+            {"guid": "g5", "title": "T5", "indexerId": 1, "protocol": "torrent", "seasonNumber": 1, "airDate": "2026-11-15T12:00:00-05:00"}
+        ]
+        """.trimIndent()
+
+        val releases = testJson.decodeFromString<List<SeriesRelease>>(jsonWithFormats)
+        assertEquals(5, releases.size)
+        assertEquals(Instant.parse("2026-11-15T00:00:00Z"), releases[0].airDate)
+        assertEquals(Instant.parse("2026-11-15T12:00:00Z"), releases[1].airDate)
+        assertEquals(Instant.parse("2026-11-15T12:00:00Z"), releases[2].airDate)
+        assertEquals(Instant.parse("2026-11-15T10:00:00Z"), releases[3].airDate)
+        assertEquals(Instant.parse("2026-11-15T17:00:00Z"), releases[4].airDate)
     }
 }

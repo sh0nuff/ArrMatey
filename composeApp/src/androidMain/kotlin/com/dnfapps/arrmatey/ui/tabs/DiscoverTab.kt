@@ -15,7 +15,6 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,8 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import com.dnfapps.arrmatey.discover.model.DiscoverCategory
 import com.dnfapps.arrmatey.discover.model.SearchResult
 import com.dnfapps.arrmatey.discover.viewmodel.DiscoverViewModel
 import com.dnfapps.arrmatey.mediaserver.usecase.ResolveSonarrEpisodeUseCase
@@ -40,14 +41,18 @@ import com.dnfapps.arrmatey.navigation.navigateToMediaServerItem
 import com.dnfapps.arrmatey.navigation.toArrDetailsOrPreview
 import com.dnfapps.arrmatey.navigation.toDetails
 import com.dnfapps.arrmatey.navigation.toPersonDetails
+import com.dnfapps.arrmatey.newest.NewestDownloadableViewModel
+import com.dnfapps.arrmatey.newest.ReleaseKind
 import com.dnfapps.arrmatey.shared.*
 import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.components.MediaInstanceFilterRow
 import com.dnfapps.arrmatey.ui.components.SearchResultList
 import com.dnfapps.arrmatey.ui.components.navigation.TwoPaneMasterDetailNavDisplay
 import com.dnfapps.arrmatey.ui.components.navigation.mediaNavEntries
+import com.dnfapps.arrmatey.ui.helpers.isExpandedWidth
 import com.dnfapps.arrmatey.ui.screens.DiscoverCategoryScreen
 import com.dnfapps.arrmatey.ui.screens.DiscoverHomeScreen
+import com.dnfapps.arrmatey.ui.screens.NewestDownloadableGridScreen
 import com.dnfapps.arrmatey.utils.mokoString
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -58,10 +63,11 @@ fun DiscoverTab(
     windowSizeClass: WindowSizeClass,
     wideRailIsVisible: Boolean,
     viewModel: DiscoverViewModel = koinViewModel(),
+    newestViewModel: NewestDownloadableViewModel = koinViewModel(),
     navigationManager: NavigationManager = koinInject(),
     navigation: Navigator<NavKey> = navigationManager.discover,
 ) {
-    val isExpanded = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded
+    val isExpanded = windowSizeClass.isExpandedWidth
     TwoPaneMasterDetailNavDisplay(
         navigation = navigation,
         isExpanded = isExpanded,
@@ -74,6 +80,10 @@ fun DiscoverTab(
                 val resolveEpisodeUseCase: ResolveSonarrEpisodeUseCase = koinInject()
                 DiscoverHomeScreen(
                     viewModel = viewModel,
+                    newestViewModel = newestViewModel,
+                    onSeeMoreProwlarr = { kind ->
+                        navigation.navigateTo(DiscoverScreen.Prowlarr(kind))
+                    },
                     wideRailIsVisible = wideRailIsVisible,
                     onSeeMore = { category ->
                         navigation.navigateTo(DiscoverScreen.Category(category))
@@ -118,6 +128,19 @@ fun DiscoverTab(
                                 navigation.toPersonDetails(result.result.id)
                             }
                         }
+                    },
+                )
+            }
+            entry<DiscoverScreen.Prowlarr> { entry ->
+                val category = if (entry.kind == ReleaseKind.Movie) DiscoverCategory.PROWLARR_MOVIES else DiscoverCategory.PROWLARR_SERIES
+                val genres by viewModel.getGenresForCategory(category).collectAsStateWithLifecycle()
+                NewestDownloadableGridScreen(
+                    kind = entry.kind,
+                    genres = genres,
+                    viewModel = newestViewModel,
+                    onBack = { navigation.popBackStack() },
+                    onItemClick = { item ->
+                        item.match?.let { navigation.toDetails(tmdbId = it.id, requestType = it.mediaType) }
                     },
                 )
             }

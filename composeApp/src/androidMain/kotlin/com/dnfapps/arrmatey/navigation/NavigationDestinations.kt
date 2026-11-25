@@ -9,6 +9,7 @@ import com.dnfapps.arrmatey.bazarr.api.model.BazarrMediaType
 import com.dnfapps.arrmatey.discover.model.DiscoverCategory
 import com.dnfapps.arrmatey.instances.model.InstanceType
 import com.dnfapps.arrmatey.mediaserver.model.MediaServerType
+import com.dnfapps.arrmatey.newest.ReleaseKind
 import com.dnfapps.arrmatey.seerr.api.model.RequestType
 
 sealed interface MediaScreen : NavKey {
@@ -115,6 +116,10 @@ sealed interface DiscoverScreen : NavKey {
     data class Category(
         val category: DiscoverCategory,
     ) : DiscoverScreen
+
+    data class Prowlarr(
+        val kind: ReleaseKind,
+    ) : DiscoverScreen
 }
 
 sealed interface CalendarScreen : NavKey {
@@ -194,7 +199,15 @@ sealed interface DashboardScreen : NavKey {
 
     data object Prowlarr : DashboardScreen
 
+    data object ProwlarrIndexers : DashboardScreen
+
     data object Bazarr : DashboardScreen
+}
+
+sealed interface ProwlarrScreen : NavKey {
+    data object Home : ProwlarrScreen
+
+    data object Indexers : ProwlarrScreen
 }
 
 sealed interface BazarrScreen : NavKey {

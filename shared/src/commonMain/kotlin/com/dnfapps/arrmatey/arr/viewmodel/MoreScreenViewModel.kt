@@ -119,6 +119,14 @@ class MoreScreenViewModel(
                 initialValue = false,
             )
 
+    val calendarFocusYesterday =
+        preferencesStore.calendarFocusYesterday
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = false,
+            )
+
     val appTheme =
         preferencesStore.appTheme
             .stateIn(
@@ -157,6 +165,14 @@ class MoreScreenViewModel(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
                 initialValue = true,
+            )
+
+    val swipeSensitivity =
+        preferencesStore.swipeSensitivity
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = 0.60f,
             )
 
     val smartAddSeerrAction =
@@ -396,6 +412,10 @@ class MoreScreenViewModel(
         preferencesStore.toggleStartOfWeekMonday()
     }
 
+    fun toggleCalendarFocusYesterday() {
+        preferencesStore.toggleCalendarFocusYesterday()
+    }
+
     fun setAppTheme(theme: AppTheme) {
         preferencesStore.setAppTheme(theme)
     }
@@ -414,6 +434,10 @@ class MoreScreenViewModel(
 
     fun toggleDualPanelSupport() {
         preferencesStore.toggleDualPanelSupport()
+    }
+
+    fun setSwipeSensitivity(value: Float) {
+        preferencesStore.setSwipeSensitivity(value)
     }
 
     fun setSmartAddSeerrAction(action: SmartAddSeerrAction) {

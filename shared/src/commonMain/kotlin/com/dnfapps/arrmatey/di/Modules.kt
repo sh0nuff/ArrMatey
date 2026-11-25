@@ -2,6 +2,7 @@ package com.dnfapps.arrmatey.di
 
 import com.dnfapps.arrmatey.arr.api.client.GenericClient
 import com.dnfapps.arrmatey.arr.api.client.HttpClientFactory
+import com.dnfapps.arrmatey.arr.api.client.ListenarrInstantSerializer
 import com.dnfapps.arrmatey.arr.api.client.logging.DynamicLogger
 import com.dnfapps.arrmatey.arr.api.model.ArrMedia
 import com.dnfapps.arrmatey.arr.api.model.ArrSeries
@@ -158,6 +159,8 @@ import com.dnfapps.arrmatey.monitoring.usecase.GetPlaybackStreamsUseCase
 import com.dnfapps.arrmatey.monitoring.usecase.TerminatePlaybackStreamUseCase
 import com.dnfapps.arrmatey.monitoring.viewmodel.MonitoringHistoryViewModel
 import com.dnfapps.arrmatey.monitoring.viewmodel.MonitoringViewModel
+import com.dnfapps.arrmatey.newest.GetNewestDownloadableUseCase
+import com.dnfapps.arrmatey.newest.NewestDownloadableViewModel
 import com.dnfapps.arrmatey.notifications.NotificationCleanupUseCase
 import com.dnfapps.arrmatey.notifications.ScheduleNotificationUseCase
 import com.dnfapps.arrmatey.seerr.api.model.MediaIssuePackage
@@ -168,6 +171,7 @@ import com.dnfapps.arrmatey.seerr.usecase.CloseIssueUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetCurrentSeerrUserUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetDiscoverMoviesUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetDiscoverTvUseCase
+import com.dnfapps.arrmatey.seerr.usecase.GetGenresUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetIssueDetailsUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetIssuesUseCase
 import com.dnfapps.arrmatey.seerr.usecase.GetPersonCreditsUseCase
@@ -230,10 +234,12 @@ import dev.shivathapaa.logger.core.LoggerConfig
 import dev.shivathapaa.logger.sink.DefaultLogSink
 import io.ktor.client.plugins.logging.Logger
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import kotlin.time.Instant
 import dev.shivathapaa.logger.api.Logger as FLogger
 
 val logging =
@@ -274,6 +280,9 @@ val networkModule =
                 // (e.g. Bazarr's language fields, which can be null for unrecognised codes) return
                 // null for properties our models treat as non-null with a default.
                 coerceInputValues = true
+                serializersModule = SerializersModule {
+                    contextual(Instant::class, ListenarrInstantSerializer)
+                }
             }
         }
 
@@ -367,6 +376,7 @@ val useCaseModule =
         factory { DeleteAlbumFilesUseCase() }
         factory { GetProwlarrIndexersUseCase(get()) }
         factory { PerformProwlarrSearchUseCase(get()) }
+        factory { GetNewestDownloadableUseCase() }
         factory { GrabProwlarrReleaseUseCase(get()) }
         factory { UpdateCalendarFilterPreferenceUseCase(get()) }
         factory { GetSeerrInstanceRepositoryUseCase(get()) }
@@ -394,6 +404,7 @@ val useCaseModule =
         factory { GetDiscoverTvUseCase() }
         factory { GetUpcomingMoviesUseCase() }
         factory { GetUpcomingTvUseCase() }
+        factory { GetGenresUseCase() }
         factory { GetRecommendationsUseCase() }
         factory { GetSimilarUseCase() }
         factory { SearchSeerrUseCase() }
@@ -457,7 +468,7 @@ val useCaseModule =
         factory { PerformBazarrAutomaticSearchUseCase() }
         factory { DownloadBazarrSubtitleToDeviceUseCase(get(), get(), get()) }
         factory { CredentialMigrationUseCase(get(), get(), get()) }
-        factory { ExportDataUseCase(get(), get(), get(), get(), get(), get(), get(), getOrNull()) }
+        factory { ExportDataUseCase(get(), get(), get(), get(), get(), get(), getOrNull()) }
         factory { ImportDataUseCase(get(), get(), get(), get(), get(), get(), get(), getOrNull()) }
         factory { GetInstancePresencesUseCase() }
         factory { UpdateAllPreferencesUseCase(get(), get(), getOrNull()) }
@@ -474,6 +485,7 @@ val viewModelModule =
                 getDiscoverTvUseCase = get(),
                 getUpcomingMoviesUseCase = get(),
                 getUpcomingTvUseCase = get(),
+                getGenresUseCase = get(),
                 globalSearchUseCase = get(),
                 preferencesStore = get(),
                 mediaServerManager = getOrNull(),
@@ -618,6 +630,7 @@ val viewModelModule =
         }
         viewModelOf(::ProwlarrIndexersViewModel)
         viewModelOf(::ProwlarrSearchViewModel)
+        viewModelOf(::NewestDownloadableViewModel)
         viewModelOf(::DownloadQueueViewModel)
         viewModel { (clientId: Long?) ->
             DownloadClientSettingsViewModel(clientId, get(), get(), get(), get(), get(), get())

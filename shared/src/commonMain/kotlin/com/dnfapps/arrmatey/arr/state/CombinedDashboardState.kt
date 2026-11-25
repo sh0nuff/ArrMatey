@@ -21,6 +21,7 @@ import com.dnfapps.arrmatey.arr.api.model.ReleaseProtocol
 import com.dnfapps.arrmatey.arr.api.model.Revision
 import com.dnfapps.arrmatey.arr.api.model.SeriesType
 import com.dnfapps.arrmatey.arr.api.model.SonarrQueueItem
+import com.dnfapps.arrmatey.arr.api.model.hasDownloadedFiles
 import com.dnfapps.arrmatey.compose.DashboardCards
 import com.dnfapps.arrmatey.database.EncryptedString
 import com.dnfapps.arrmatey.discover.model.DiscoverCategory
@@ -148,12 +149,13 @@ sealed interface CombinedDashboardState {
             DiscoverCategory.POPULAR_SERIES -> popularTv
             DiscoverCategory.UPCOMING_MOVIES -> upcomingMovies
             DiscoverCategory.UPCOMING_SERIES -> upcomingTv
+            DiscoverCategory.PROWLARR_MOVIES, DiscoverCategory.PROWLARR_SERIES -> emptyList()
         }
 
         fun isLoadingDiscoverFeed(category: DiscoverCategory): Boolean = isLoadingMoreDiscover[category] == true
 
         fun resolveMediaStatus(item: DiscoverResult): SeerrMediaStatus {
-            if (item.mediaServerItem != null || item.inArrLibrary) {
+            if (item.mediaServerItem != null || (item.inArrLibrary && item.hasArrFiles)) {
                 return SeerrMediaStatus.Available
             }
 
@@ -184,24 +186,35 @@ sealed interface CombinedDashboardState {
                 }
             if (isPending) return SeerrMediaStatus.Pending
 
-            val isInLibrary =
-                instances.any { inst ->
-                    inst.library.any { media ->
-                        when (media) {
-                            is ArrMovie ->
-                                (media.tmdbId > 0 && media.tmdbId == item.id) ||
-                                    (item.mediaInfo?.tmdbId != null && media.tmdbId == item.mediaInfo.tmdbId)
+            var foundInLibraryWithoutFiles = item.inArrLibrary
 
-                            is ArrSeries ->
-                                (media.tmdbId != null && media.tmdbId > 0 && media.tmdbId == item.id) ||
-                                    (item.mediaInfo?.tvdbId != null && media.tvdbId == item.mediaInfo.tvdbId) ||
-                                    (item.mediaInfo?.tmdbId != null && media.tmdbId == item.mediaInfo.tmdbId)
+            instances.forEach { inst ->
+                inst.library.forEach { media ->
+                    val matches = when (media) {
+                        is ArrMovie ->
+                            (media.tmdbId > 0 && media.tmdbId == item.id) ||
+                                (item.mediaInfo?.tmdbId != null && media.tmdbId == item.mediaInfo.tmdbId)
 
-                            else -> false
+                        is ArrSeries ->
+                            (media.tmdbId != null && media.tmdbId > 0 && media.tmdbId == item.id) ||
+                                (item.mediaInfo?.tvdbId != null && media.tvdbId == item.mediaInfo.tvdbId) ||
+                                (item.mediaInfo?.tmdbId != null && media.tmdbId == item.mediaInfo.tmdbId)
+
+                        else -> false
+                    }
+                    if (matches) {
+                        if (media.hasDownloadedFiles) {
+                            return SeerrMediaStatus.Available
+                        } else {
+                            foundInLibraryWithoutFiles = true
                         }
                     }
                 }
-            if (isInLibrary) return SeerrMediaStatus.Available
+            }
+
+            if (foundInLibraryWithoutFiles) {
+                return SeerrMediaStatus.Processing
+            }
 
             return SeerrMediaStatus.Unknown
         }

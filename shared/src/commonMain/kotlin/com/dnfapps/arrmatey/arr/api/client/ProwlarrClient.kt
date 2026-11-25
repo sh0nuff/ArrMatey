@@ -14,8 +14,9 @@ import com.dnfapps.networking.safeGet
 import com.dnfapps.networking.safePost
 import com.dnfapps.networking.safePut
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.retry
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.setBody
-import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import org.koin.core.component.KoinComponent
@@ -30,12 +31,12 @@ class ProwlarrClient(
             val apiBase =
                 instance.type.apiBase
                     .trim()
-                    .trimStart('/', ' ')
+                    .trim('/', ' ')
             return "$cleanUrl/$apiBase"
         }
 
     suspend fun testConnection(): NetworkResult<Unit> {
-        val url = "$baseUrl/${instance.type.testEndpoint}"
+        val url = "$baseUrl/${instance.type.testEndpoint.trimStart('/')}"
         return httpClient.safeGet(url)
     }
 
@@ -69,7 +70,17 @@ class ProwlarrClient(
         type: String = "search",
         categories: List<Int> = emptyList(),
         indexerIds: List<Long> = emptyList(),
+        limit: Int? = null,
+        timeoutMillis: Long? = null,
     ): NetworkResult<List<ProwlarrSearchResult>> = httpClient.safeGet("$baseUrl/search") {
+        timeoutMillis?.let { ms ->
+            timeout {
+                requestTimeoutMillis = ms
+                socketTimeoutMillis = ms
+            }
+            // A slow search would otherwise be repeated after each timeout.
+            retry { noRetry() }
+        }
         url {
             parameters.append("query", query)
             parameters.append("type", type)
@@ -79,6 +90,7 @@ class ProwlarrClient(
             if (indexerIds.isNotEmpty()) {
                 parameters.append("indexerIds", indexerIds.joinToString(","))
             }
+            limit?.let { parameters.append("limit", it.toString()) }
         }
     }
 
