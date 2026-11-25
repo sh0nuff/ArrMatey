@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -44,6 +45,7 @@ import com.dnfapps.arrmatey.seerr.api.model.RequestType
 import com.dnfapps.arrmatey.shared.*
 import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.components.NewestDownloadableList
+import com.dnfapps.arrmatey.ui.components.NewestReleaseSheetHost
 import com.dnfapps.arrmatey.ui.components.appbar.FullScreenSearchAppBar
 import com.dnfapps.arrmatey.ui.components.navigation.BackButton
 import com.dnfapps.arrmatey.ui.components.navigation.NavigationDrawerButton
@@ -118,6 +120,8 @@ fun ProwlarrTab(
     val moviesState by newestViewModel.moviesState.collectAsStateWithLifecycle()
     val tvState by newestViewModel.tvState.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableStateOf(ProwlarrTabSegment.All) }
+    val statuses by newestViewModel.statuses.collectAsStateWithLifecycle()
+    var actionsItem by remember { mutableStateOf<NewestDownloadableItem?>(null) }
 
     val openDetails: (NewestDownloadableItem) -> Unit = { item ->
         item.match?.let { onOpenDetails(it.id, it.mediaType) }
@@ -187,9 +191,18 @@ fun ProwlarrTab(
                 onItemClick = openDetails,
                 onRefresh = { newestViewModel.refresh() },
                 modifier = Modifier.fillMaxSize(),
+                statuses = statuses,
+                onItemActions = { actionsItem = it },
             )
         }
     }
+
+    NewestReleaseSheetHost(
+        viewModel = newestViewModel,
+        item = actionsItem,
+        onDismiss = { actionsItem = null },
+        onOpenDetails = openDetails,
+    )
 }
 
 /** Prowlarr's indexers, opened from the Prowlarr tab's top bar. */

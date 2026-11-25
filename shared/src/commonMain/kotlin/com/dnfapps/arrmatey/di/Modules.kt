@@ -160,6 +160,7 @@ import com.dnfapps.arrmatey.monitoring.usecase.TerminatePlaybackStreamUseCase
 import com.dnfapps.arrmatey.monitoring.viewmodel.MonitoringHistoryViewModel
 import com.dnfapps.arrmatey.monitoring.viewmodel.MonitoringViewModel
 import com.dnfapps.arrmatey.newest.GetNewestDownloadableUseCase
+import com.dnfapps.arrmatey.newest.GrabNewestReleaseUseCase
 import com.dnfapps.arrmatey.newest.NewestDownloadableViewModel
 import com.dnfapps.arrmatey.notifications.NotificationCleanupUseCase
 import com.dnfapps.arrmatey.notifications.ScheduleNotificationUseCase
@@ -377,6 +378,7 @@ val useCaseModule =
         factory { GetProwlarrIndexersUseCase(get()) }
         factory { PerformProwlarrSearchUseCase(get()) }
         factory { GetNewestDownloadableUseCase() }
+        factory { GrabNewestReleaseUseCase(get(), get()) }
         factory { GrabProwlarrReleaseUseCase(get()) }
         factory { UpdateCalendarFilterPreferenceUseCase(get()) }
         factory { GetSeerrInstanceRepositoryUseCase(get()) }

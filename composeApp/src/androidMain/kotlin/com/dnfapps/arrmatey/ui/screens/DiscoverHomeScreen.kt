@@ -67,6 +67,7 @@ import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.components.ArrAppBarWithSearch
 import com.dnfapps.arrmatey.ui.components.DiscoverSection
 import com.dnfapps.arrmatey.ui.components.NewestDownloadableRow
+import com.dnfapps.arrmatey.ui.components.NewestReleaseSheetHost
 import com.dnfapps.arrmatey.ui.components.NoInstanceView
 import com.dnfapps.arrmatey.ui.components.appbar.FloatingBarAction
 import com.dnfapps.arrmatey.ui.components.appbar.ProvideFloatingBarAction
@@ -105,6 +106,8 @@ fun DiscoverHomeScreen(
     val isInitialLoading by viewModel.isInitialLoading.collectAsStateWithLifecycle()
     val sectionPreferences by viewModel.discoverSectionPreferences.collectAsStateWithLifecycle()
     val hasProwlarr by newestViewModel.hasProwlarr.collectAsStateWithLifecycle()
+    val newestStatuses by newestViewModel.statuses.collectAsStateWithLifecycle()
+    var newestActionsItem by remember { mutableStateOf<NewestDownloadableItem?>(null) }
     val newestMoviesState by newestViewModel.filteredStateFor(ReleaseKind.Movie).collectAsStateWithLifecycle()
     val newestTvState by newestViewModel.filteredStateFor(ReleaseKind.Tv).collectAsStateWithLifecycle()
 
@@ -336,6 +339,8 @@ fun DiscoverHomeScreen(
                                             icon = Icons.Default.Movie,
                                             state = newestMoviesState,
                                             onItemClick = openNewest,
+                                            statuses = newestStatuses,
+                                            onItemActions = { newestActionsItem = it },
                                             onSeeMore = { onSeeMoreProwlarr(ReleaseKind.Movie) },
                                         )
                                     }
@@ -347,6 +352,8 @@ fun DiscoverHomeScreen(
                                             icon = Icons.Default.Tv,
                                             state = newestTvState,
                                             onItemClick = openNewest,
+                                            statuses = newestStatuses,
+                                            onItemActions = { newestActionsItem = it },
                                             onSeeMore = { onSeeMoreProwlarr(ReleaseKind.Tv) },
                                         )
                                     }
@@ -360,6 +367,13 @@ fun DiscoverHomeScreen(
             }
         }
     }
+
+    NewestReleaseSheetHost(
+        viewModel = newestViewModel,
+        item = newestActionsItem,
+        onDismiss = { newestActionsItem = null },
+        onOpenDetails = { item -> item.match?.let { onItemClick(SearchResult.SeerrMediaResult(it)) } },
+    )
 
     if (showCustomizationSheet) {
         // Without Prowlarr its rows are left out of the sheet, and kept as they were on save.

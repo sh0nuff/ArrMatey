@@ -15,7 +15,13 @@ data class NewestRelease(
     val ageHours: Double,
     val qualities: List<String>,
     val releaseCount: Int,
-)
+    /** The indexer releases merged into this group, newest first. */
+    val sources: List<ProwlarrSearchResult> = emptyList(),
+) {
+    /** The release "Download this release" grabs: the most seeders, then the newest. */
+    val best: ProwlarrSearchResult?
+        get() = sources.maxWithOrNull(compareBy<ProwlarrSearchResult> { it.seeders ?: -1 }.thenBy { it.publishDate ?: "" })
+}
 
 object NewestReleaseGrouper {
     const val MIN_SEEDERS = 3
@@ -55,6 +61,7 @@ object NewestReleaseGrouper {
                     ageHours = result.ageHours,
                     qualities = listOfNotNull(releaseQuality),
                     releaseCount = 1,
+                    sources = listOf(result),
                 )
             } else {
                 val newer = (result.publishDate ?: "") > (existing.publishDate ?: "")
@@ -68,6 +75,7 @@ object NewestReleaseGrouper {
                         existing.qualities + releaseQuality
                     },
                     releaseCount = existing.releaseCount + 1,
+                    sources = existing.sources + result,
                 )
             }
         }

@@ -2,6 +2,7 @@ package com.dnfapps.arrmatey.newest
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dnfapps.arrmatey.arr.service.ActivityQueueService
 import com.dnfapps.arrmatey.datastore.PreferencesStore
 import com.dnfapps.arrmatey.datastore.SeeMoreFilterSerializer
 import com.dnfapps.arrmatey.discover.model.DiscoverFilterState
@@ -24,6 +25,8 @@ import kotlinx.coroutines.launch
 class NewestDownloadableViewModel(
     private val instanceManager: InstanceManager,
     private val getNewestDownloadableUseCase: GetNewestDownloadableUseCase,
+    private val grabNewestReleaseUseCase: GrabNewestReleaseUseCase,
+    private val activityQueueService: ActivityQueueService,
     private val preferencesStore: PreferencesStore,
 ) : ViewModel() {
     private val _moviesState = MutableStateFlow<NewestDownloadableState>(NewestDownloadableState.Initial)
@@ -73,6 +76,52 @@ class NewestDownloadableViewModel(
                 state
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, source.value)
+    }
+
+    /**
+     * Each loaded release's download status, by [NewestDownloadableItem.key], from Radarr
+     * and Sonarr's queues (refreshed by the Activity tab's polling, and once per load here)
+     * and their libraries.
+     */
+    val statuses: StateFlow<Map<String, NewestDownloadStatus>> = combine(
+        _moviesState,
+        _tvState,
+        activityQueueService.allActivityTasks,
+        instanceManager.observeAllArrLibraries(),
+    ) { movies, tv, queue, library ->
+        listOf(movies, tv)
+            .flatMap { (it as? NewestDownloadableState.Success)?.items.orEmpty() }
+            .associate { it.key to NewestStatusResolver.resolve(it, queue, library) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    private val _grabbingKey = MutableStateFlow<String?>(null)
+
+    /** The release being grabbed, while "Download this release" runs. */
+    val grabbingKey: StateFlow<String?> = _grabbingKey.asStateFlow()
+
+    private val _grabResult = MutableStateFlow<Pair<String, GrabNewestResult>?>(null)
+
+    /** The last grab's result, by item key, until [clearGrabResult]. */
+    val grabResult: StateFlow<Pair<String, GrabNewestResult>?> = _grabResult.asStateFlow()
+
+    fun grab(item: NewestDownloadableItem) {
+        if (_grabbingKey.value != null) return
+        _grabbingKey.value = item.key
+        _grabResult.value = null
+        viewModelScope.launch {
+            val result = try {
+                grabNewestReleaseUseCase(item, prowlarr)
+            } catch (e: Exception) {
+                GrabNewestResult.Failed(e.message ?: "Something went wrong.")
+            }
+            _grabResult.value = item.key to result
+            _grabbingKey.value = null
+            activityQueueService.refreshActivity()
+        }
+    }
+
+    fun clearGrabResult() {
+        _grabResult.value = null
     }
 
     private val jobs = mutableMapOf<ReleaseKind, Job>()
@@ -128,6 +177,7 @@ class NewestDownloadableViewModel(
             return
         }
         val seerrRepo = seerr
+        viewModelScope.launch { runCatching { activityQueueService.refreshActivity() } }
         // Movies and TV are separate Prowlarr searches and run side by side.
         // A new load replaces the one in flight instead of running a second slow search.
         ReleaseKind.entries.forEach { kind ->
