@@ -158,8 +158,8 @@ private fun NewestPosterRow(
 
 /**
  * One release as a poster (Seerr matched it) or a plain card, with its status badge.
- * Tapping a poster opens the details; a long press, or tapping a plain card, opens the
- * release's actions.
+ * Tapping opens the release's actions (name, seeders, Download this release, Open details);
+ * a long press on a poster goes straight to the details.
  */
 @Composable
 fun NewestItemTile(
@@ -176,8 +176,8 @@ fun NewestItemTile(
             PosterItem(
                 item = match,
                 modifier = posterModifier,
-                onItemClick = { onItemClick(item) },
-                onLongClick = { onItemActions(item) },
+                onItemClick = { onItemActions(item) },
+                onLongClick = { onItemClick(item) },
             )
         } else {
             PlainReleaseCard(item = item, modifier = cardModifier, onClick = { onItemActions(item) })
@@ -256,7 +256,7 @@ fun NewestDownloadableList(
                             items(items = state.items, key = { it.key }) { item ->
                                 NewestDownloadableListItem(
                                     item = item,
-                                    onClick = { onItemClick(item) },
+                                    onClick = { onItemActions(item) },
                                     status = statuses[item.key],
                                     onActions = { onItemActions(item) },
                                 )
