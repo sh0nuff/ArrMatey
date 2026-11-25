@@ -22,6 +22,7 @@ object PreferenceDefaults {
     const val START_OF_WEEK_MONDAY: Boolean = false
     const val SEARCH_SHOW_BANNERS: Boolean = true
     const val DUAL_PANEL_SUPPORT: Boolean = true
+    const val SWIPE_SENSITIVITY: Float = 0.60f
 
     // Info Cards
     const val SHOW_INFO_CARD: Boolean = true
@@ -35,6 +36,7 @@ object PreferenceDefaults {
     const val CALENDAR_MONITOR_ONLY: Boolean = false
     const val CALENDAR_PREMIERS_ONLY: Boolean = false
     const val CALENDAR_FINALES_ONLY: Boolean = false
+    const val CALENDAR_FOCUS_YESTERDAY: Boolean = false
 
     // Download Client
     val DOWNLOAD_CLIENT_SORT_BY: SortBy = SortBy.Title

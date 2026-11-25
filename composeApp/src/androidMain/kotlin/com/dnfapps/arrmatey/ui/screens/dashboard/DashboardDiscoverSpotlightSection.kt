@@ -163,11 +163,9 @@ fun DashboardDiscoverSpotlightSection(
                             val spotlightItem = spotlightItems[page]
                             val title = spotlightItem.title ?: spotlightItem.name ?: mokoString(MR.strings.unknown)
 
-                            val mockCover = if (spotlightItem.mediaType == RequestType.Tv) InstanceType.Sonarr.mockCover else InstanceType.Radarr.mockCover
                             val imageModel: Any? =
                                 spotlightItem.fullBackdropPath
                                     ?: spotlightItem.fullPosterPath
-                                    ?: mockCover?.let { painterResource(it) }
 
                             Box(
                                 modifier =
@@ -266,11 +264,16 @@ fun DashboardDiscoverSpotlightSection(
                                     val mediaServerItem = item.mediaServerItem
                                     if (mediaServerItem != null) {
                                         MediaServerBadgeOverlay(mediaServerItem.serverType)
-                                    } else if (item.inArrLibrary) {
+                                    } else if (item.isAvailableInLibrary) {
                                         InLibraryBadgeOverlay()
                                     } else {
-                                        item.mediaInfo?.let { info ->
-                                            StatusOverlay(SeerrMediaStatus.fromValue(info.status))
+                                        val status =
+                                            item.mediaInfo?.let { info ->
+                                                SeerrMediaStatus.fromValue(info.status)
+                                            } ?: if (item.inArrLibrary) SeerrMediaStatus.Processing else null
+
+                                        status?.let { s ->
+                                            StatusOverlay(s)
                                         }
                                     }
                                 }

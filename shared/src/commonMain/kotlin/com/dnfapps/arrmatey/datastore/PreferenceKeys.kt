@@ -2,6 +2,7 @@ package com.dnfapps.arrmatey.datastore
 
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dnfapps.arrmatey.instances.model.InstanceType
@@ -34,6 +35,7 @@ internal object PreferenceKeys {
     val APP_COLOR = stringPreferencesKey("appColor")
     val TAB_PREFERENCES = stringPreferencesKey("tabPreferences")
     val DISCOVER_SECTION_PREFERENCES = stringPreferencesKey("discoverSectionPreferences")
+    val SEE_MORE_FILTERS = stringPreferencesKey("seeMoreFilters")
 
     val LAST_RELEASE_NOTES = intPreferencesKey("lastReleaseNotes")
     val IS_FIRST_LAUNCH = booleanPreferencesKey("isFirstLaunch")
@@ -66,6 +68,8 @@ internal object PreferenceKeys {
     val USE_COLORED_ACTIVITY_CARDS = booleanPreferencesKey("useColoredActivityCards")
     val USE_COLORED_CALENDAR_CARDS = booleanPreferencesKey("useColoredCalendarCards")
     val START_OF_WEEK_MONDAY = booleanPreferencesKey("startOfWeekMonday")
+    val CALENDAR_FOCUS_YESTERDAY = booleanPreferencesKey("calendarFocusYesterday")
+    val SWIPE_SENSITIVITY = floatPreferencesKey("swipeSensitivity")
 
     fun infoCardKey(type: InstanceType): Preferences.Key<Boolean> = when (type) {
         InstanceType.Sonarr -> SONARR_INFO_CARD

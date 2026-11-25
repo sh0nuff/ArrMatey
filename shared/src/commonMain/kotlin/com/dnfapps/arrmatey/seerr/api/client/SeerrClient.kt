@@ -4,6 +4,7 @@ import com.dnfapps.arrmatey.instances.model.Instance
 import com.dnfapps.arrmatey.seerr.api.model.ApprovalStatus
 import com.dnfapps.arrmatey.seerr.api.model.CombinedRatings
 import com.dnfapps.arrmatey.seerr.api.model.DiscoverResponse
+import com.dnfapps.arrmatey.seerr.api.model.Genre
 import com.dnfapps.arrmatey.seerr.api.model.Issue
 import com.dnfapps.arrmatey.seerr.api.model.IssueBody
 import com.dnfapps.arrmatey.seerr.api.model.IssueCount
@@ -103,6 +104,10 @@ interface SeerrClient {
         page: Int = 1,
         today: String,
     ): NetworkResult<DiscoverResponse>
+
+    suspend fun getMovieGenres(): NetworkResult<List<Genre>>
+
+    suspend fun getTvGenres(): NetworkResult<List<Genre>>
 
     suspend fun search(
         query: String,
@@ -214,7 +219,7 @@ class SeerrClientImpl(
 ) : KoinComponent,
     SeerrClient {
     private val baseUrl: String
-        get() = "${instance.getEffectiveBaseUrl()}/${instance.type.apiBase}"
+        get() = "${instance.getEffectiveBaseUrl().trimEnd('/')}/${instance.type.apiBase.trim('/')}"
 
     override suspend fun testConnection(): NetworkResult<Unit> = get(instance.type.testEndpoint)
 
@@ -302,6 +307,10 @@ class SeerrClientImpl(
         page: Int,
         today: String,
     ): NetworkResult<DiscoverResponse> = get("discover/tv", mapOf("page" to page, "firstAirDateGte" to today))
+
+    override suspend fun getMovieGenres(): NetworkResult<List<Genre>> = get("genres/movie")
+
+    override suspend fun getTvGenres(): NetworkResult<List<Genre>> = get("genres/tv")
 
     override suspend fun search(
         query: String,
@@ -446,7 +455,7 @@ class SeerrClientImpl(
     private suspend inline fun <reified T> get(
         endpoint: String,
         params: Map<String, Any> = emptyMap(),
-    ): NetworkResult<T> = httpClient.safeGet<T>("$baseUrl/$endpoint") {
+    ): NetworkResult<T> = httpClient.safeGet<T>("$baseUrl/${endpoint.trimStart('/')}") {
         url {
             params.forEach { (key, value) ->
                 parameters.append(key, value.toString())
@@ -457,19 +466,19 @@ class SeerrClientImpl(
     private suspend inline fun <reified T, reified R> post(
         endpoint: String,
         body: T,
-    ): NetworkResult<R> = httpClient.safePost<R>("$baseUrl/$endpoint") {
+    ): NetworkResult<R> = httpClient.safePost<R>("$baseUrl/${endpoint.trimStart('/')}") {
         contentType(ContentType.Application.Json)
         setBody(body)
     }
 
-    private suspend inline fun <reified T> post(endpoint: String): NetworkResult<T> = httpClient.safePost<T>("$baseUrl/$endpoint") {
+    private suspend inline fun <reified T> post(endpoint: String): NetworkResult<T> = httpClient.safePost<T>("$baseUrl/${endpoint.trimStart('/')}") {
         contentType(ContentType.Application.Json)
     }
 
     private suspend inline fun <reified T, reified R> put(
         endpoint: String,
         body: T,
-    ): NetworkResult<R> = httpClient.safePut<R>("$baseUrl/$endpoint") {
+    ): NetworkResult<R> = httpClient.safePut<R>("$baseUrl/${endpoint.trimStart('/')}") {
         contentType(ContentType.Application.Json)
         setBody(body)
     }
@@ -478,7 +487,7 @@ class SeerrClientImpl(
         endpoint: String,
         body: T,
         params: Map<String, Any> = emptyMap(),
-    ): NetworkResult<R> = httpClient.safeDelete("$baseUrl/$endpoint") {
+    ): NetworkResult<R> = httpClient.safeDelete("$baseUrl/${endpoint.trimStart('/')}") {
         contentType(ContentType.Application.Json)
         url {
             params.forEach { (key, value) ->
@@ -491,7 +500,7 @@ class SeerrClientImpl(
     private suspend inline fun <reified T> delete(
         endpoint: String,
         params: Map<String, Any> = emptyMap(),
-    ): NetworkResult<T> = httpClient.safeDelete("$baseUrl/$endpoint") {
+    ): NetworkResult<T> = httpClient.safeDelete("$baseUrl/${endpoint.trimStart('/')}") {
         url {
             params.forEach { (key, value) ->
                 parameters.append(key, value.toString())

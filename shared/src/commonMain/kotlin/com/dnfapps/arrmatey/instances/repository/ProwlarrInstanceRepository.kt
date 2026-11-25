@@ -18,9 +18,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class ProwlarrInstanceRepository(
-    override val instance: Instance,
-    httpClient: HttpClient,
+    override var instance: Instance,
+    private val httpClient: HttpClient,
 ) : InstanceScopedRepository {
+    override fun close() {
+        httpClient.close()
+    }
+
     private val prowlarrClient = ProwlarrClient(instance, httpClient)
 
     private val _softwareStatus = MutableStateFlow<ArrSoftwareStatus?>(null)
@@ -87,7 +91,15 @@ class ProwlarrInstanceRepository(
         query: String,
         categories: List<Int> = emptyList(),
         indexerIds: List<Long> = emptyList(),
-    ): NetworkResult<List<ProwlarrSearchResult>> = prowlarrClient.search(query = query, categories = categories, indexerIds = indexerIds)
+        limit: Int? = null,
+        timeoutMillis: Long? = null,
+    ): NetworkResult<List<ProwlarrSearchResult>> = prowlarrClient.search(
+        query = query,
+        categories = categories,
+        indexerIds = indexerIds,
+        limit = limit,
+        timeoutMillis = timeoutMillis,
+    )
 
     suspend fun testIndexer(indexer: ProwlarrIndexer): NetworkResult<Unit> = prowlarrClient.testIndexer(indexer)
 

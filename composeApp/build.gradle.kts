@@ -58,8 +58,8 @@ android {
             libs.versions.android.targetSdk
                 .get()
                 .toInt()
-        versionCode = 39
-        versionName = "1.0.2"
+        versionCode = 42
+        versionName = "1.2.1"
     }
     packaging {
         resources {
@@ -179,6 +179,12 @@ dependencies {
     implementation(libs.aboutlibraries)
 
     implementation(libs.vico.compose.m3)
+
+    implementation(libs.zxing.core)
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
 
     debugImplementation(compose.uiTooling)
 

@@ -57,30 +57,28 @@ fun CalendarListView(
     val preferencesStore: PreferencesStore = koinInject()
     val useColoredCards by preferencesStore.useColoredCalendarCards.collectAsStateWithLifecycle(false)
 
-    val endOfListReached by remember(state.dates) {
+    val endOfListReached by remember(listState) {
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
             lastVisibleItem != null && lastVisibleItem.index >= state.dates.size - 1
         }
     }
 
-    val todayIndex by remember(state.dates, state.today) {
+    val focusIndex = remember(state.dates, state.focusDate) {
+        state.dates.indexOfFirst { it >= state.focusDate }.coerceAtLeast(0)
+    }
+
+    val isFocusDateVisible by remember(listState, focusIndex) {
         derivedStateOf {
-            state.dates.indexOfFirst { it >= state.today }.coerceAtLeast(0)
+            listState.layoutInfo.visibleItemsInfo.any { it.index == focusIndex }
         }
     }
 
-    val isTodayVisible by remember(todayIndex) {
-        derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo.any { it.index == todayIndex }
-        }
-    }
-
-    LaunchedEffect(state.dates.isEmpty()) {
+    LaunchedEffect(state.dates.isEmpty(), state.focusDate) {
         if (state.dates.isNotEmpty()) {
             val targetIndex =
                 state.dates
-                    .indexOfFirst { it >= state.today }
+                    .indexOfFirst { it >= state.focusDate }
                     .coerceAtLeast(0)
             listState.scrollToItem(targetIndex)
         }
@@ -136,7 +134,7 @@ fun CalendarListView(
         val isFloatingBarVisible = LocalFloatingBarVisible.current
 
         ProvideFloatingBarAction(
-            visible = isFloatingBarVisible && !isTodayVisible,
+            visible = isFloatingBarVisible && !isFocusDateVisible,
             action =
             FloatingBarAction(
                 icon = {
@@ -147,7 +145,7 @@ fun CalendarListView(
                 },
                 onClick = {
                     scope.launch {
-                        listState.animateScrollToItem(todayIndex)
+                        listState.animateScrollToItem(focusIndex)
                     }
                 },
             ),
@@ -155,7 +153,7 @@ fun CalendarListView(
 
         if (!isFloatingBarVisible) {
             AnimatedVisibility(
-                visible = !isTodayVisible,
+                visible = !isFocusDateVisible,
                 enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
                 exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
                 modifier = Modifier.align(Alignment.BottomEnd),
@@ -163,7 +161,7 @@ fun CalendarListView(
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
-                            listState.animateScrollToItem(todayIndex)
+                            listState.animateScrollToItem(focusIndex)
                         }
                     },
                     modifier = Modifier.padding(12.dp),

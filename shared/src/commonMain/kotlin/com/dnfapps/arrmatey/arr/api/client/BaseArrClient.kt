@@ -43,8 +43,11 @@ abstract class BaseArrClient(
     ArrClient {
     protected abstract val instance: Instance
 
+    protected open val apiBase: String
+        get() = instance.type.apiBase
+
     protected val baseUrl: String
-        get() = "${instance.getEffectiveBaseUrl()}/${instance.type.apiBase}"
+        get() = "${instance.getEffectiveBaseUrl().trimEnd('/')}/${apiBase.trim('/')}"
 
     override suspend fun testConnection(): NetworkResult<Unit> = get(instance.type.testEndpoint)
 
@@ -255,11 +258,17 @@ abstract class BaseArrClient(
         endpoint: String,
         params: Map<String, Any> = emptyMap(),
     ): NetworkResult<T> = httpClient
-        .safeGet<T>("$baseUrl/$endpoint") {
+        .safeGet<T>("$baseUrl/${endpoint.trimStart('/')}") {
             appendInstanceApiKey()
             url {
                 params.forEach { (key, value) ->
-                    parameters.append(key, value.toString())
+                    if (value is Iterable<*>) {
+                        value.forEach { item ->
+                            if (item != null) parameters.append(key, item.toString())
+                        }
+                    } else {
+                        parameters.append(key, value.toString())
+                    }
                 }
             }
         }.rebuild()
@@ -268,7 +277,7 @@ abstract class BaseArrClient(
         endpoint: String,
         body: T,
     ): NetworkResult<R> = httpClient
-        .safePost<R>("$baseUrl/$endpoint") {
+        .safePost<R>("$baseUrl/${endpoint.trimStart('/')}") {
             appendInstanceApiKey()
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -278,7 +287,7 @@ abstract class BaseArrClient(
         endpoint: String,
         body: T,
     ): NetworkResult<R> = httpClient
-        .safePut<R>("$baseUrl/$endpoint") {
+        .safePut<R>("$baseUrl/${endpoint.trimStart('/')}") {
             appendInstanceApiKey()
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -288,12 +297,18 @@ abstract class BaseArrClient(
         endpoint: String,
         body: T,
         params: Map<String, Any> = emptyMap(),
-    ): NetworkResult<R> = httpClient.safeDelete("$baseUrl/$endpoint") {
+    ): NetworkResult<R> = httpClient.safeDelete("$baseUrl/${endpoint.trimStart('/')}") {
         appendInstanceApiKey()
         contentType(ContentType.Application.Json)
         url {
             params.forEach { (key, value) ->
-                parameters.append(key, value.toString())
+                if (value is Iterable<*>) {
+                    value.forEach { item ->
+                        if (item != null) parameters.append(key, item.toString())
+                    }
+                } else {
+                    parameters.append(key, value.toString())
+                }
             }
         }
         setBody(body)
@@ -302,11 +317,17 @@ abstract class BaseArrClient(
     protected suspend inline fun <reified T> delete(
         endpoint: String,
         params: Map<String, Any> = emptyMap(),
-    ): NetworkResult<T> = httpClient.safeDelete("$baseUrl/$endpoint") {
+    ): NetworkResult<T> = httpClient.safeDelete("$baseUrl/${endpoint.trimStart('/')}") {
         appendInstanceApiKey()
         url {
             params.forEach { (key, value) ->
-                parameters.append(key, value.toString())
+                if (value is Iterable<*>) {
+                    value.forEach { item ->
+                        if (item != null) parameters.append(key, item.toString())
+                    }
+                } else {
+                    parameters.append(key, value.toString())
+                }
             }
         }
     }

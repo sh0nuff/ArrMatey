@@ -40,6 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,9 +58,9 @@ import com.dnfapps.arrmatey.seerr.api.model.RequestMediaDetails
 import com.dnfapps.arrmatey.seerr.api.model.RequestType
 import com.dnfapps.arrmatey.seerr.api.model.SeerrMediaStatus
 import com.dnfapps.arrmatey.shared.*
-import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.helpers.rememberRemoteImageData
 import com.dnfapps.arrmatey.ui.theme.ArrLightPurple
+import com.dnfapps.arrmatey.ui.theme.PlexGray
 import com.dnfapps.arrmatey.utils.AspectRatio
 import com.dnfapps.arrmatey.utils.MultiSelectState
 import com.dnfapps.arrmatey.utils.PosterElevation
@@ -81,10 +83,13 @@ fun PosterItem(
     posterModel: Any? = null,
     additionalContent: @Composable BoxScope.() -> Unit = {},
     multiSelectState: MultiSelectState<Long> = MultiSelectState(selectionModeAvailable = false),
+    isInSelectionMode: Boolean? = null,
+    isSelected: Boolean? = null,
 ) {
-    val isInSelectionMode by multiSelectState.isInSelectionMode.collectAsStateWithLifecycle()
-    val selectedItems by multiSelectState.selectedItems.collectAsStateWithLifecycle()
-    val isSelected = item.id?.let { selectedItems.contains(it) } ?: false
+    val selectionMode =
+        isInSelectionMode ?: multiSelectState.isInSelectionMode.collectAsStateWithLifecycle().value
+    val selected =
+        isSelected ?: (item.id?.let { multiSelectState.isSelected(it) } ?: false)
 
     var imageLoadError by remember { mutableStateOf(value = false) }
 
@@ -104,28 +109,28 @@ fun PosterItem(
     BasePosterItem(
         model = model,
         modifier = modifier,
-        isSelected = isSelected,
+        isSelected = selected,
         enabled = enabled,
         elevation = elevation,
         radius = radius,
         posterHeight = posterHeight,
         aspectRatio = aspectRatio,
         onClick = {
-            if (isInSelectionMode) {
+            if (selectionMode) {
                 item.id?.let { multiSelectState.toggle(it) }
             } else {
                 onItemClick?.invoke(item)
             }
         },
         onLongClick = {
-            if (!isInSelectionMode) {
+            if (!selectionMode) {
                 multiSelectState.enterSelectionMode()
                 item.id?.let { multiSelectState.toggle(it) }
             }
         },
         additionalContent = {
             additionalContent()
-            if (isInSelectionMode) {
+            if (selectionMode) {
                 Box(
                     modifier =
                     Modifier
@@ -133,7 +138,7 @@ fun PosterItem(
                         .padding(8.dp),
                     contentAlignment = Alignment.TopEnd,
                 ) {
-                    CircularCheckbox(checked = isSelected)
+                    CircularCheckbox(checked = selected)
                 }
             }
         },
@@ -237,8 +242,7 @@ fun PosterItem(
                         },
                     )
                 } else {
-                    val mockCover = if (item.mediaType == RequestType.Tv) InstanceType.Sonarr.mockCover else InstanceType.Radarr.mockCover
-                    mockCover?.let { painterResource(it) } ?: ""
+                    ""
                 }
 
         BasePosterItem(
@@ -264,16 +268,21 @@ fun PosterItem(
                             iconSize = badgeIconSize,
                             innerPadding = badgeInnerPadding,
                         )
-                    } else if (item.inArrLibrary) {
+                    } else if (item.isAvailableInLibrary) {
                         InLibraryBadgeOverlay(
                             modifier = Modifier.align(Alignment.TopEnd).padding(badgePadding),
                             iconSize = badgeIconSize,
                             innerPadding = badgeInnerPadding,
                         )
                     } else {
-                        item.mediaInfo?.let { info ->
+                        val status =
+                            item.mediaInfo?.let { info ->
+                                SeerrMediaStatus.fromValue(info.status)
+                            } ?: if (item.inArrLibrary) SeerrMediaStatus.Processing else null
+
+                        status?.let { s ->
                             StatusOverlay(
-                                status = SeerrMediaStatus.fromValue(info.status),
+                                status = s,
                                 modifier = Modifier.align(Alignment.TopEnd).padding(badgePadding),
                                 iconSize = badgeIconSize,
                                 innerPadding = badgeInnerPadding,
@@ -369,8 +378,7 @@ fun PosterItem(
                     },
                 )
             } else {
-                val mockCover = if (item.requestType == RequestType.Tv) InstanceType.Sonarr.mockCover else InstanceType.Radarr.mockCover
-                mockCover?.let { painterResource(it) } ?: ""
+                ""
             }
 
     BasePosterItem(
@@ -445,12 +453,14 @@ fun MediaServerBadgeOverlay(
     modifier: Modifier = Modifier,
     iconSize: Dp = 16.dp,
     innerPadding: Dp = 4.dp,
-    borderWidth: Dp = 1.5.dp,
 ) {
     Surface(
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        border = BorderStroke(borderWidth, serverType.brandColor),
+        color = if (serverType == MediaServerType.Plex) {
+            PlexGray
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+        },
         shadowElevation = 2.dp,
         modifier = modifier,
     ) {
@@ -563,7 +573,7 @@ fun BasePosterItem(
                     enabled = enabled,
                     onClick = { onClick?.invoke() },
                     onLongClick = onLongClick,
-                )
+                ).pointerHoverIcon(PointerIcon.Hand)
             } else {
                 Modifier
             },

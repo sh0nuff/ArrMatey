@@ -46,9 +46,12 @@ import com.dnfapps.arrmatey.arr.viewmodel.MoreScreenViewModel
 import com.dnfapps.arrmatey.backup.viewmodel.BackupViewModel
 import com.dnfapps.arrmatey.datastore.PreferencesStore
 import com.dnfapps.arrmatey.datastore.TabPreferences
+import com.dnfapps.arrmatey.mediaserver.viewmodel.MediaServerSettingsViewModel
 import com.dnfapps.arrmatey.shared.*
 import com.dnfapps.arrmatey.shared.MR
 import com.dnfapps.arrmatey.ui.screens.settings.ImportDialog
+import com.dnfapps.arrmatey.ui.screens.settings.ScanQrCodeSheet
+import com.dnfapps.arrmatey.ui.sheets.MediaServerConfigurationSheet
 import com.dnfapps.arrmatey.utils.MokoStrings
 import com.dnfapps.arrmatey.utils.mokoString
 import kotlinx.coroutines.launch
@@ -64,6 +67,7 @@ fun OnboardingScreen(
     preferences: PreferencesStore = koinInject(),
     moreViewModel: MoreScreenViewModel = koinViewModel(),
     backupViewModel: BackupViewModel = koinViewModel(),
+    mediaServerViewModel: MediaServerSettingsViewModel = koinViewModel(),
     moko: MokoStrings = koinInject(),
 ) {
     val context = LocalContext.current
@@ -72,6 +76,9 @@ fun OnboardingScreen(
 
     val instances by moreViewModel.instances.collectAsStateWithLifecycle()
     val downloadClients by moreViewModel.downloadClients.collectAsStateWithLifecycle()
+    val configuredServersMap by mediaServerViewModel.configuredServers.collectAsStateWithLifecycle()
+    val mediaServers = remember(configuredServersMap) { configuredServersMap.values.toList() }
+    val mediaServerConfigState by mediaServerViewModel.configState.collectAsStateWithLifecycle()
     val appTheme by moreViewModel.appTheme.collectAsStateWithLifecycle()
     val appColor by moreViewModel.appColor.collectAsStateWithLifecycle()
     val useServiceNavLogos by moreViewModel.useServiceNavLogos.collectAsStateWithLifecycle()
@@ -80,8 +87,11 @@ fun OnboardingScreen(
 
     var showAddInstanceSheet by remember { mutableStateOf(false) }
     var showAddDownloadClientSheet by remember { mutableStateOf(false) }
+    var showSelectMediaServerSheet by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var showScanQrSheet by remember { mutableStateOf(false) }
     var pendingImportData by remember { mutableStateOf<String?>(null) }
+    var isQrImport by remember { mutableStateOf(false) }
 
     val importLauncher =
         rememberLauncherForActivityResult(
@@ -206,7 +216,11 @@ fun OnboardingScreen(
                             }
                         },
                         onRestoreBackup = {
+                            isQrImport = false
                             importLauncher.launch(arrayOf("application/json"))
+                        },
+                        onScanQrCode = {
+                            showScanQrSheet = true
                         },
                         onSkip = {
                             scope.launch {
@@ -219,8 +233,10 @@ fun OnboardingScreen(
                     InstancesSetupPage(
                         instances = instances,
                         downloadClients = downloadClients,
+                        mediaServers = mediaServers,
                         onAddInstance = { showAddInstanceSheet = true },
                         onAddDownloadClient = { showAddDownloadClientSheet = true },
+                        onAddMediaServer = { showSelectMediaServerSheet = true },
                     )
 
                 5 ->
@@ -245,6 +261,7 @@ fun OnboardingScreen(
                     ReadyPage(
                         instancesCount = instances.size,
                         downloadClientsCount = downloadClients.size,
+                        mediaServersCount = mediaServers.size,
                         onFinish = onComplete,
                     )
             }
@@ -263,33 +280,70 @@ fun OnboardingScreen(
         )
     }
 
+    if (showSelectMediaServerSheet) {
+        SelectMediaServerTypeSheet(
+            onDismiss = { showSelectMediaServerSheet = false },
+            onSelectType = { serverType ->
+                mediaServerViewModel.openConfiguration(serverType)
+            },
+        )
+    }
+
+    if (mediaServerConfigState?.serverType != null) {
+        MediaServerConfigurationSheet(
+            onDismiss = { mediaServerViewModel.closeConfiguration() },
+            viewModel = mediaServerViewModel,
+        )
+    }
+
+    if (showScanQrSheet) {
+        ScanQrCodeSheet(
+            onDismiss = { showScanQrSheet = false },
+            onQrScanned = { scannedString ->
+                showScanQrSheet = false
+                backupViewModel.resetImportState()
+                pendingImportData = scannedString
+                isQrImport = true
+                showImportDialog = true
+            },
+        )
+    }
+
     if (showImportDialog) {
         val importState by backupViewModel.importUiState.collectAsStateWithLifecycle()
 
         ImportDialog(
             importState = importState,
+            isQrImport = isQrImport,
             onDismiss = {
                 showImportDialog = false
                 backupViewModel.resetImportState()
                 pendingImportData = null
+                isQrImport = false
             },
             onPasswordChanged = { backupViewModel.setImportPassword(it) },
             onToggleInstanceSelection = { backupViewModel.toggleImportInstanceSelection(it) },
             onToggleDownloadClientSelection = { backupViewModel.toggleImportDownloadClientSelection(it) },
             onToggleCustomWebpageSelection = { backupViewModel.toggleImportCustomWebpageSelection(it) },
             onToggleImportMediaServerSelection = { backupViewModel.toggleImportMediaServerSelection(it) },
+            onToggleImportInstancePreferences = { backupViewModel.toggleImportInstancePreferences() },
             onToggleImportTabPreferences = { backupViewModel.toggleImportTabPreferences() },
             onToggleImportUiPreferences = { backupViewModel.toggleImportUiPreferences() },
             onToggleImportIntegrationsPreferences = { backupViewModel.toggleImportIntegrationsPreferences() },
             onConfirmDecrypt = {
                 pendingImportData?.let { data ->
-                    backupViewModel.prepareImport(data)
+                    if (isQrImport) {
+                        backupViewModel.prepareImportFromQr(data)
+                    } else {
+                        backupViewModel.prepareImport(data)
+                    }
                 }
             },
             onConfirmImport = {
                 backupViewModel.executeImport {
                     showImportDialog = false
                     pendingImportData = null
+                    isQrImport = false
                     Toast.makeText(context, moko.getString(MR.strings.import_complete), Toast.LENGTH_SHORT).show()
                     scope.launch {
                         pagerState.animateScrollToPage(pagerState.currentPage + 1)

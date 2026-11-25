@@ -15,12 +15,16 @@ struct OnboardingView: View {
     @StateObject private var preferences = PreferencesViewModel()
     @StateObject private var backupViewModel = BackupViewModelS()
     @StateObject private var downloadClientsViewModel = DownloadClientsViewModelS()
-    
+    @StateObject private var mediaServerViewModel = MediaServerSettingsViewModelS()
+
     @State private var instances: [Instance] = []
     @State private var currentPage: Int = 0
     @State private var showAddInstanceSheet: Bool = false
     @State private var showAddDownloadClientSheet: Bool = false
+    @State private var showSelectMediaServerSheet: Bool = false
     @State private var showFileImporter: Bool = false
+    @State private var showScanQrSheet: Bool = false
+    @State private var isQrImport: Bool = false
     @State private var importData: String = ""
     @State private var showImportSuccess: Bool = false
 
@@ -44,7 +48,11 @@ struct OnboardingView: View {
 
                     SetupChoicePageView(
                         onRestoreBackup: {
+                            isQrImport = false
                             showFileImporter = true
+                        },
+                        onScanQrCode: {
+                            showScanQrSheet = true
                         },
                         onManualSetup: {
                             withAnimation {
@@ -62,11 +70,15 @@ struct OnboardingView: View {
                     InstancesPageView(
                         instances: instances,
                         downloadClients: downloadClientsViewModel.downloadClientsState.downloadClients,
+                        mediaServers: Array(mediaServerViewModel.configuredServers.values),
                         onAddInstance: {
                             showAddInstanceSheet = true
                         },
                         onAddDownloadClient: {
                             showAddDownloadClientSheet = true
+                        },
+                        onAddMediaServer: {
+                            showSelectMediaServerSheet = true
                         },
                         onDeleteInstance: { instance in
                             Task {
@@ -75,6 +87,9 @@ struct OnboardingView: View {
                         },
                         onDeleteDownloadClient: { client in
                             downloadClientsViewModel.deleteClient(client)
+                        },
+                        onDeleteMediaServer: { server in
+                            mediaServerViewModel.openConfiguration(for: server.serverType)
                         }
                     )
                     .tag(4)
@@ -92,6 +107,7 @@ struct OnboardingView: View {
                     ReadyPageView(
                         instancesCount: instances.count,
                         downloadClientsCount: downloadClientsViewModel.downloadClientsState.downloadClients.count,
+                        mediaServersCount: mediaServerViewModel.configuredServers.count,
                         onFinish: onComplete
                     )
                     .tag(7)
@@ -119,6 +135,19 @@ struct OnboardingView: View {
                 AddEditDownloadClientScreen()
             }
         }
+        .confirmationDialog(MR.strings().add_media_server.localized(), isPresented: $showSelectMediaServerSheet, titleVisibility: .visible) {
+            ForEach(MediaServerType.allCases, id: \.name) { serverType in
+                Button(serverType.name) {
+                    mediaServerViewModel.openConfiguration(for: serverType)
+                }
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { mediaServerViewModel.configState?.serverType != nil },
+            set: { if !$0 { mediaServerViewModel.closeConfiguration() } }
+        )) {
+            MediaServerConfigurationSheet(viewModel: mediaServerViewModel)
+        }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json]) { result in
             switch result {
             case .success(let url):
@@ -126,6 +155,7 @@ struct OnboardingView: View {
                     defer { url.stopAccessingSecurityScopedResource() }
                     if let data = try? Data(contentsOf: url), let string = String(data: data, encoding: .utf8) {
                         backupViewModel.resetImportState()
+                        self.isQrImport = false
                         self.importData = string
                     }
                 }
@@ -133,11 +163,20 @@ struct OnboardingView: View {
                 print("Import failed: \(error.localizedDescription)")
             }
         }
+        .sheet(isPresented: $showScanQrSheet) {
+            ScanQrCodeSheet(isPresented: $showScanQrSheet) { code in
+                backupViewModel.resetImportState()
+                self.isQrImport = true
+                self.importData = code
+            }
+        }
         .sheet(isPresented: Binding(get: { !importData.isEmpty }, set: { if !$0 { importData = "" } }), onDismiss: {
             backupViewModel.resetImportState()
+            self.isQrImport = false
         }) {
-            ImportSheet(viewModel: backupViewModel, isPresented: Binding(get: { !importData.isEmpty }, set: { if !$0 { importData = "" } }), encryptedData: importData) {
+            ImportSheet(viewModel: backupViewModel, isPresented: Binding(get: { !importData.isEmpty }, set: { if !$0 { importData = "" } }), encryptedData: importData, isQrImport: isQrImport) {
                 self.importData = ""
+                self.isQrImport = false
                 self.showImportSuccess = true
             }
         }
